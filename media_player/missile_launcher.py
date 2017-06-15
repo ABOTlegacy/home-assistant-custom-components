@@ -1,9 +1,16 @@
 #!/srv/telebot/bin/python3.4
+###
+### --> configuration.yaml
+### media_player:
+###     platform: missile_launcher
+###
 import sys
 import subprocess
 import time
 import platform
 import argparse
+import usb.core
+import usb.util
 import logging
 from homeassistant.components.media_player import (MediaPlayerDevice, SUPPORT_SELECT_SOURCE, PLATFORM_SCHEMA)
 
@@ -11,6 +18,12 @@ _LOGGER = logging.getLogger(__name__)
 
 
 # Protocol command bytes
+DOWN    = 0x01
+UP      = 0x02
+LEFT    = 0x04
+RIGHT   = 0x08
+FIRE    = 0x10
+STOP    = 0x20
 DEVICE = None
 DEVICE_TYPE = None
 REQUIREMENTS = []
@@ -33,6 +46,8 @@ class IMissileSensor(MediaPlayerDevice):
         self._name = name
         self._source = '/none'
         self._source_list = ['/none', '/right', '/left', '/up', '/down', '/fire']
+        # Setup USB
+        self.setup_usb()
         # Lastly Do An Update
         self.update()
 
@@ -73,6 +88,66 @@ class IMissileSensor(MediaPlayerDevice):
         """Return the date of the next event."""
         return '/none'
 
+    def select_source(self, source):
+        """Set the input source."""
+        self.run_command(source, 1500)
+        
     def update(self):
         """Get the latest update and set the state."""
-        self._source = '/none'
+        self._source = "/none"
+
+    def setup_usb(_self):
+        # Tested only with the Cheeky Dream Thunder
+        # and original USB Launcher
+        # Make Sure USB Has Access by all users
+        # https://unix.stackexchange.com/questions/44308/understanding-udev-rules-and-permissions-in-libusb
+        global DEVICE 
+        global DEVICE_TYPE
+
+        DEVICE = usb.core.find(idVendor=0x2123, idProduct=0x1010)
+
+        if DEVICE is None:
+            DEVICE = usb.core.find(idVendor=0x0a81, idProduct=0x0701)
+            if DEVICE is None:
+                print('Missile device not found')
+            else:
+                DEVICE_TYPE = "Original"
+        else:
+            DEVICE_TYPE = "Thunder"
+        print(DEVICE_TYPE)
+        
+        # On Linux we need to detach usb HID first
+        try:
+            DEVICE.detach_kernel_driver(0)
+        except:
+            pass # already unregistered    
+
+    def send_cmd(_self, cmd):
+        if "Thunder" == DEVICE_TYPE:
+            DEVICE.ctrl_transfer(0x21, 0x09, 0, 0, [0x02, cmd, 0x00,0x00,0x00,0x00,0x00,0x00])
+        elif "Original" == DEVICE_TYPE:
+            DEVICE.ctrl_transfer(0x21, 0x09, 0x0200, 0, [cmd])
+
+    def send_move(_self, cmd, duration_ms):
+        _self.send_cmd(cmd)
+        time.sleep(duration_ms / 1000.0)
+        _self.send_cmd(STOP)
+
+    def run_command(_self, command, value):
+        command = command.lower()
+        if command == "/right":
+            _self.send_move(RIGHT, value)
+        elif command == "/left":
+            _self.send_move(LEFT, value)
+        elif command == "/up":
+            _self.send_move(UP, value)
+        elif command == "/down":
+            _self.send_move(DOWN, value)
+        elif command == "/fire" or command == "/shoot":
+            if value < 1 or value > 4:
+                value = 1
+            # Stabilize prior to the shot, then allow for reload time after.
+            time.sleep(0.5)
+            for i in range(value):
+                _self.send_cmd(FIRE)
+                time.sleep(4.5)
