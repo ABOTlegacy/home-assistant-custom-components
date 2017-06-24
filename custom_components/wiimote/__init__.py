@@ -1,8 +1,7 @@
-#!/srv/telebot/bin/python3.4
+#!/srv/wiimote/bin/python3.4
 ###
 ### --> configuration.yaml
-### remote :
-###     platform: wiimote
+### wiimote:
 ###
 ### Install Wiimote
 ### http://www.raspberrypi-spy.co.uk/2013/02/nintendo-wii-remote-python-and-the-raspberry-pi/
@@ -27,6 +26,8 @@ DEPENDENCIES = []
 DOMAIN = 'wiimote'
 EVENT_IR_COMMAND_RECEIVED = 'ir_command_received'
 BUTTON_NAME = 'button_name'
+BUTTON_DELAY = 0.5
+
 
 @asyncio.coroutine
 def async_setup(hass, config):
@@ -38,20 +39,13 @@ def async_setup(hass, config):
     def _stateChanged(event):
         """Start the bot."""
         if event.data.get('entity_id') in ('switch.wiimote'):
-            #_LOGGER.info('Wiimote State Has Batman')
             _LOGGER.info(event.data.get('new_state').state)
             if event.data.get('new_state').state is 'on':
                 wiimote_interface.start()
-                #wiimote_interface.run()
             if event.data.get('new_state').state is 'off':
                 wiimote_interface.stopped.set()
-            
-            
     hass.bus.async_listen(EVENT_STATE_CHANGED, _stateChanged)
     return True
-    
-
-    
 
 class WiimoteInterface(threading.Thread):
 
@@ -64,59 +58,73 @@ class WiimoteInterface(threading.Thread):
     
     def run(self):
         """Run the loop of the Wiimote interface thread."""
-        _LOGGER.debug("BATMAN: Wiimote interface thread started")
-        time.sleep(1)
+        _LOGGER.debug("Wiimote: Interface Thread Started")
+        time.sleep(0.5)
         try:
+            self.stopped = threading.Event()
             self.wii = cwiid.Wiimote()
-            _LOGGER.debug("BATMAN: Wiimote Connected")
+            self.wii.rpt_mode = cwiid.RPT_BTN
+            _LOGGER.debug("Wiimote: Connected")
+            _LOGGER.debug(self.stopped.isSet())
         except RuntimeError:
-            _LOGGER.debug("BATMAN: Error opening wiimote connection")
+            _LOGGER.debug("Wiimote: Error opening connection")
         while not self.stopped.isSet():
             buttons = self.wii.state['buttons']
             # If Plus and Minus buttons pressed
             # together then rumble and quit.
             if (buttons - cwiid.BTN_PLUS - cwiid.BTN_MINUS == 0):
-                _LOGGER.debug("Wiimote is Closing connection ...")
-            self.wii.rumble = 1
-            time.sleep(1)
-            self.wii.rumble = 0
-            exit(self.wii)
+                _LOGGER.debug("Wiimote: Closing Connection")
+                self.wii.rumble = 1
+                time.sleep(1)
+                self.wii.rumble = 0
+                exit(self.wii)
             # Check if other buttons are pressed by
             # doing a bitwise AND of the buttons number
             # and the predefined constant for that button.
             if (buttons & cwiid.BTN_LEFT):
+                _LOGGER.debug("Wiimote: LEFT")
                 time.sleep(BUTTON_DELAY)
                 self.hass.bus.fire(EVENT_IR_COMMAND_RECEIVED, {BUTTON_NAME: '/left'})
-            if(buttons & cwiid.BTN_RIGHT):
+            if (buttons & cwiid.BTN_RIGHT):
+                _LOGGER.debug("Wiimote: RIGHT")
                 time.sleep(BUTTON_DELAY)
                 self.hass.bus.fire(EVENT_IR_COMMAND_RECEIVED, {BUTTON_NAME: '/right'})
             if (buttons & cwiid.BTN_UP):
+                _LOGGER.debug("Wiimote: UP")
                 time.sleep(BUTTON_DELAY)
                 self.hass.bus.fire(EVENT_IR_COMMAND_RECEIVED, {BUTTON_NAME: '/up'})
             if (buttons & cwiid.BTN_DOWN):
+                _LOGGER.debug("Wiimote: DOWN")
                 time.sleep(BUTTON_DELAY)
                 self.hass.bus.fire(EVENT_IR_COMMAND_RECEIVED, {BUTTON_NAME: '/down'})
             if (buttons & cwiid.BTN_1):
+                _LOGGER.debug("Wiimote: BTN 1")
                 time.sleep(BUTTON_DELAY)
                 self.hass.bus.fire(EVENT_IR_COMMAND_RECEIVED, {BUTTON_NAME: '/1'})
             if (buttons & cwiid.BTN_2):
+                _LOGGER.debug("Wiimote: BTN 2")
                 time.sleep(BUTTON_DELAY)
                 self.hass.bus.fire(EVENT_IR_COMMAND_RECEIVED, {BUTTON_NAME: '/2'})
             if (buttons & cwiid.BTN_A):
+                _LOGGER.debug("Wiimote: BTN A")
                 time.sleep(BUTTON_DELAY)
                 self.hass.bus.fire(EVENT_IR_COMMAND_RECEIVED, {BUTTON_NAME: '/a'})
             if (buttons & cwiid.BTN_B):
+                _LOGGER.debug("Wiimote: BTN B")
                 time.sleep(BUTTON_DELAY)
                 self.hass.bus.fire(EVENT_IR_COMMAND_RECEIVED, {BUTTON_NAME: '/b'})
             if (buttons & cwiid.BTN_HOME):
+                _LOGGER.debug("Wiimote: HOME")
                 time.sleep(BUTTON_DELAY)
                 self.hass.bus.fire(EVENT_IR_COMMAND_RECEIVED, {BUTTON_NAME: '/home'})
             if (buttons & cwiid.BTN_MINUS):
+                _LOGGER.debug("Wiimote: MINUS")
                 time.sleep(BUTTON_DELAY)
                 self.hass.bus.fire(EVENT_IR_COMMAND_RECEIVED, {BUTTON_NAME: '/minus'})
             if (buttons & cwiid.BTN_PLUS):
+                _LOGGER.debug("Wiimote: PLUS")
                 time.sleep(BUTTON_DELAY)
                 self.hass.bus.fire(EVENT_IR_COMMAND_RECEIVED, {BUTTON_NAME: '/plus'})
             else:
-                time.sleep(0.2)
-        _LOGGER.debug('Wiimote interface thread stopped')
+                time.sleep(0.5)
+        _LOGGER.debug('Wiimote: Interface Thread Stopped')
