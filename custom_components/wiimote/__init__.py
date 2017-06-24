@@ -33,17 +33,19 @@ BUTTON_DELAY = 0.5
 def async_setup(hass, config):
     """Set up the Wiimote platform."""
     load_platform(hass, 'switch', 'wiimote')
-    wiimote_interface = WiimoteInterface(hass)
     
     @callback
     def _stateChanged(event):
         """Start the bot."""
         if event.data.get('entity_id') in ('switch.wiimote'):
-            _LOGGER.info(event.data.get('new_state').state)
+            _LOGGER.debug(event.data.get('new_state').state)
+            wiimote_interface = WiimoteInterface(hass)
             if event.data.get('new_state').state is 'on':
+                wiimote_interface = WiimoteInterface(hass)
                 wiimote_interface.start()
             if event.data.get('new_state').state is 'off':
-                wiimote_interface.stopped.set()
+                if wiimote_interface.is_alive():
+                    wiimote_interface.stopped.set()
     hass.bus.async_listen(EVENT_STATE_CHANGED, _stateChanged)
     return True
 
@@ -127,4 +129,5 @@ class WiimoteInterface(threading.Thread):
                 self.hass.bus.fire(EVENT_IR_COMMAND_RECEIVED, {BUTTON_NAME: '/plus'})
             else:
                 time.sleep(0.5)
+        self.stopped.set()
         _LOGGER.debug('Wiimote: Interface Thread Stopped')
