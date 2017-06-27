@@ -1,15 +1,7 @@
-homeassistant:
-  customize:
-    packages.system: &customize
-      haaska_hidden: true
-      homebridge_hidden: true
-      package: 'Test'
-
-
 group: # will add a view on the main tab of home assistant
-  suresh.test:
-    name: suresh_test
-    view: yes
+  medicine.reminder:
+    name: Medicine Reminder
+    view: no
     entities:
       - input_boolean.tablet_reminder
       - automation.Tablet_Already_taken
