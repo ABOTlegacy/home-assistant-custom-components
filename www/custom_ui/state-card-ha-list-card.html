@@ -1,0 +1,144 @@
+<!--
+--  Forked From: https://github.com/Tommatheussen
+--
+--  customize_glob:
+--    "list.*":
+--      custom_ui_state_card: ha-list-card
+--
+-->
+
+<script>
+(function () {
+  window.ListEntity = function (hass, stateObj) {
+    this.hass = hass;
+    this.stateObj = stateObj;
+  };
+
+  function addGetter(name, getter) {
+    Object.defineProperty(window.ListEntity.prototype, name, { get: getter });
+  }
+
+
+  addGetter('supportsAdd', function () {
+    return (this.stateObj.attributes.supported_features & 1) !== 0;
+  });
+
+  addGetter('supportsRemove', function() {
+    return (this.stateObj.attributes.supported_features & 2) !== 0;
+  });
+  /* eslint-enable no-bitwise */
+
+  Object.assign(window.ListEntity.prototype, {
+    addItem(item) {
+      this.callService('add_item', { item: item });
+    },
+
+    removeItem(item) {
+      this.callService('remove_item', { item: item });
+    },
+
+    // helper method
+
+    callService(service, data) {
+      var serviceData = data || {};
+      serviceData.entity_id = this.stateObj.entity_id;
+      this.hass.callService('list', service, serviceData);
+    },
+  });
+}());
+</script>
+
+
+<dom-module id='state-card-ha-list-card'>
+  <template>
+    <style>
+      .item-body {
+          flex: 1
+      }
+
+      .new-item {
+          padding: 0px 25px 10px;
+      }
+    </style>
+
+    <ha-card header='[[computeTitle(stateObj)]]'>
+      <template is='dom-repeat' items="[[computeItems(stateObj)]]" as="item" role="listbox">
+        <paper-item>
+          <paper-item-body
+            class="item-body">
+            <div>{{ item }}</div>
+          </paper-item-body>
+          <paper-icon-button
+            on-tap="removeItem"
+            alt="Remove"
+            icon="mdi:close-circle"
+			hidden$='[[!listObj.supportsRemove]]'>
+            </paper-icon-button>
+        </paper-item>
+      </template>
+      <paper-input
+        class="new-item"
+        on-keydown="checkForEnter"
+        label="New Item"
+        value="{{ newItem }}"
+        hidden$='[[!listObj.supportsAdd]]'></paper-input>
+    </ha-card>
+  </template>
+</dom-module>
+
+<script>
+Polymer({
+  is: 'state-card-ha-list-card',
+
+  properties: {
+    hass: {
+      type: Object,
+    },
+
+    stateObj: {
+      type: Object,
+    },
+
+     listObj: {
+      type: Object,
+      computed: 'computeListObj(hass, stateObj)'
+    },
+
+    newItem: {
+        type: String,
+        value: ""
+    }
+  },
+
+  computeListObj: function (hass, stateObj) {
+    return new window.ListEntity(hass, stateObj);
+  },
+
+  computeTitle: function (stateObj) {
+    return (stateObj.attributes.title ||
+            window.hassUtil.computeStateName(stateObj));
+  },
+
+  computeItems: function(stateObj) {
+      if (!stateObj || !stateObj.attributes) {
+        return [];
+      }
+      return stateObj.attributes.items;
+  },
+
+  removeItem: function(ev) {
+    ev.stopPropagation();
+    this.listObj.removeItem(ev.model.get('item'));
+  },
+
+  checkForEnter: function (e) {
+      console.log(this.listObj);
+    // check if 'enter' was pressed
+      if (e.keyCode === 13) {
+          console.log(this.listObj);
+          this.listObj.addItem(this.newItem);
+        // enter pressed!
+      }
+  }
+});
+</script>

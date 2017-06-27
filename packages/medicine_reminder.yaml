@@ -1,0 +1,68 @@
+homeassistant:
+  customize:
+    packages.system: &customize
+      haaska_hidden: true
+      homebridge_hidden: true
+      package: 'Test'
+
+
+group: # will add a view on the main tab of home assistant
+  suresh.test:
+    name: suresh_test
+    view: yes
+    entities:
+      - input_boolean.tablet_reminder
+      - automation.Tablet_Already_taken
+      - automation.Remind_Me_Later
+      - automation.tablet_reminder
+      
+
+input_boolean:
+  tablet_reminder:
+    name: Tablet Reminder
+    initial: on
+    icon: mdi:tablet
+
+automation:
+  - alias: Tablet Already taken
+    trigger:
+      platform: event
+      event_type: telegram_command
+      event_data:
+        command: '/taken'
+    action:
+      - service: telegram_bot.send_message
+        data:
+          message: "Great job!"
+      - service: input_boolean.turn_off
+        entity_id: input_boolean.tablet_reminder
+
+  - alias: Remind Me Later
+    trigger:
+      platform: event
+      event_type: telegram_command
+      event_data:
+        command: '/remind_me'
+    action:
+      - service: notify.telegram_notify
+        data:
+          message: "Will remind you in a few minutes !"
+
+  - alias: tablet reminder
+    initial_state: true
+    trigger:
+      - platform: time
+        minutes: '30'
+        seconds: '00'
+    condition:
+      condition: and
+      conditions:
+      - condition: template
+        value_template: '{{ states.input_boolean.tablet_reminder.state == "on" }}'
+    action:
+      - service: notify.telegram_notify
+        data:
+          data:
+            keyboard:
+              - /taken, /remind_me
+            message: commands

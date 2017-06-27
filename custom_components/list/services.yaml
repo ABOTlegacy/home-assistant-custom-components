@@ -1,0 +1,11 @@
+add_item:
+  description: Adds an item to a list or to all
+
+  fields:
+    entity_id:
+      description: Name of the lists to add to
+      example: 'list.demo_list'
+
+    item:
+      description: Item to be added to the list
+      example: My new item
